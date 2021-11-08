@@ -1,0 +1,59 @@
+apiVersion: admin.enterprise.mesh.gloo.solo.io/v1alpha1
+kind: IstioInstallation
+metadata:
+  name: managed-installation
+  namespace: gloo-mesh
+spec:
+  clusters:
+    - name: remotecluster2
+      trustDomain: cluster.local
+  istioOperatorSpec:
+    namespace: istio-system
+    profile: default
+    components:
+      pilot:
+        k8s:
+          env:
+            - name: PILOT_SKIP_VALIDATE_TRUST_DOMAIN
+              value: "true"
+      ingressGateways:
+      - name: istio-ingressgateway
+        enabled: true
+        k8s:
+          env:
+            # sni-dnat adds the clusters required for AUTO_PASSTHROUGH mode
+            - name: ISTIO_META_ROUTER_MODE
+              value: "sni-dnat"
+            - name: ISTIO_META_REQUESTED_NETWORK_VIEW
+              value: remotecluster2
+          service:
+            ports:
+              - name: http2
+                port: 80
+                targetPort: 8080
+              - name: https
+                port: 443
+                targetPort: 8443
+              - name: tcp-status-port
+                port: 15021
+                targetPort: 15021
+              - name: tls
+                port: 15443
+                targetPort: 15443
+              - name: tcp-istiod
+                port: 15012
+                targetPort: 15012
+              - name: tcp-webhook
+                port: 15017
+                targetPort: 15017
+    meshConfig:
+      accessLogFile: /dev/stdout
+      enableAutoMtls: true
+      defaultConfig:
+        envoyMetricsService:
+          address: enterprise-agent.gloo-mesh:9977
+        envoyAccessLogService:
+          address: enterprise-agent.gloo-mesh:9977
+        proxyMetadata:
+          ISTIO_META_DNS_CAPTURE: "true"
+          ISTIO_META_DNS_AUTO_ALLOCATE: "true"
